@@ -1,0 +1,34 @@
+name: Deploy templates to AWS S3
+
+on:
+  push:
+    branches:
+      - deploy
+
+jobs:
+  deploy:
+    name: Upload to Amazon S3
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    
+    - name: Checkout submodules
+      shell: bash
+      run: |
+        # If your submodules are configured to use SSH instead of HTTPS please uncomment the following line
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+        git submodule sync --recursive
+        git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Copy files to S3 with the AWS CLI
+      run: |
+        aws s3 sync . s3://quickstart-mstovenour/quickstart-ribbon-sbc --no-progress --exclude ".git/*"
